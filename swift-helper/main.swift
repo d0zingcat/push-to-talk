@@ -38,15 +38,14 @@ func checkAccessibilityPermission() {
 // MARK: - Key Event Simulation
 
 func doubleTapLeftOption() {
-    let src = CGEventSource(stateID: .hidSystemState)
-
     func tapOnce() {
-        CGEvent(keyboardEventSource: src, virtualKey: 58, keyDown: true)?.post(tap: .cghidEventTap)
-        CGEvent(keyboardEventSource: src, virtualKey: 58, keyDown: false)?.post(tap: .cghidEventTap)
+        // nil source + cgSessionEventTap 与 Hammerspoon eventtap 行为一致
+        CGEvent(keyboardEventSource: nil, virtualKey: 58, keyDown: true)?.post(tap: .cgSessionEventTap)
+        CGEvent(keyboardEventSource: nil, virtualKey: 58, keyDown: false)?.post(tap: .cgSessionEventTap)
     }
 
     tapOnce()
-    usleep(18_000)  // 18ms 间隔，与 Hammerspoon 版本一致
+    usleep(18_000)
     tapOnce()
 }
 
@@ -89,7 +88,7 @@ case "full-flow":
         fputs("Error: input source '\(target)' not found\n", stderr)
         exit(2)
     }
-    usleep(100_000)  // 等 100ms 让切换生效
+    usleep(300_000)  // 等 300ms 让切换生效，比 100ms 更可靠
     checkAccessibilityPermission()
     doubleTapLeftOption()
 
