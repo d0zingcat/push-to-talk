@@ -37,11 +37,18 @@ func checkAccessibilityPermission() {
 
 // MARK: - Key Event Simulation
 
-func doubleTapLeftOption() {
+func doubleTapRightOption() {
     func tapOnce() {
-        // keyCode 61 = 右 Option (kVK_RightOption)
-        CGEvent(keyboardEventSource: nil, virtualKey: 61, keyDown: true)?.post(tap: .cgSessionEventTap)
-        CGEvent(keyboardEventSource: nil, virtualKey: 61, keyDown: false)?.post(tap: .cgSessionEventTap)
+        // Option 是修饰键，必须用 flagsChanged 事件，而非 keyDown/keyUp
+        let down = CGEvent(keyboardEventSource: nil, virtualKey: 61, keyDown: true)
+        down?.type = .flagsChanged
+        down?.flags = .maskAlternate
+        down?.post(tap: .cgSessionEventTap)
+
+        let up = CGEvent(keyboardEventSource: nil, virtualKey: 61, keyDown: false)
+        up?.type = .flagsChanged
+        up?.flags = []
+        up?.post(tap: .cgSessionEventTap)
     }
 
     tapOnce()
@@ -90,7 +97,7 @@ case "full-flow":
     }
     usleep(300_000)  // 等 300ms 让切换生效，比 100ms 更可靠
     checkAccessibilityPermission()
-    doubleTapLeftOption()
+    doubleTapRightOption()
 
     usleep(delayMs * 1000)  // 等待用户语音输入（毫秒转微秒）
 
