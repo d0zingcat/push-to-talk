@@ -1,0 +1,54 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "doubao-ime",
+  "title": "豆包语音输入",
+  "description": "一键切换豆包输入法并触发语音输入，结束后自动恢复原输入法",
+  "icon": "extension-icon.png",
+  "author": "d0zingcat",
+  "categories": ["Productivity"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "trigger",
+      "title": "触发豆包语音输入",
+      "description": "切换到豆包输入法，触发语音输入，延迟后自动恢复",
+      "mode": "no-view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "targetInputSource",
+      "title": "目标输入法名称",
+      "description": "豆包输入法的本地化显示名称（在系统「输入法」列表中看到的名称）",
+      "type": "textfield",
+      "required": false,
+      "default": "豆包输入法"
+    },
+    {
+      "name": "restoreDelay",
+      "title": "恢复延迟（毫秒）",
+      "description": "触发语音输入后，等待多少毫秒再恢复原输入法",
+      "type": "textfield",
+      "required": false,
+      "default": "3000"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.75.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.8",
+    "@types/node": "20.8.10",
+    "@types/react": "18.3.3",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}
