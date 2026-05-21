@@ -39,9 +39,9 @@ func checkAccessibilityPermission() {
 
 func doubleTapLeftOption() {
     func tapOnce() {
-        // nil source + cgSessionEventTap 与 Hammerspoon eventtap 行为一致
-        CGEvent(keyboardEventSource: nil, virtualKey: 58, keyDown: true)?.post(tap: .cgSessionEventTap)
-        CGEvent(keyboardEventSource: nil, virtualKey: 58, keyDown: false)?.post(tap: .cgSessionEventTap)
+        // keyCode 61 = 右 Option (kVK_RightOption)
+        CGEvent(keyboardEventSource: nil, virtualKey: 61, keyDown: true)?.post(tap: .cgSessionEventTap)
+        CGEvent(keyboardEventSource: nil, virtualKey: 61, keyDown: false)?.post(tap: .cgSessionEventTap)
     }
 
     tapOnce()
