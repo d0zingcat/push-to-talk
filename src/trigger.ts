@@ -16,7 +16,7 @@ export default async function main() {
   // 以后台分离进程启动，TypeScript 进程退出后 Swift Helper 继续独立运行完整流程
   const child = spawn(helperPath, ["full-flow", "--target", targetInputSource, "--delay", String(delayMs)], {
     detached: true,
-    stdio: ["ignore", "ignore", "pipe"],
+    stdio: "ignore",  // 全部 ignore，避免 pipe 断裂时 Swift 进程收到 SIGPIPE 被杀死
   });
 
   // 等 300ms：足够捕获"找不到输入法"或"无辅助功能权限"等立即失败的情况

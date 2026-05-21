@@ -39,20 +39,21 @@ func checkAccessibilityPermission() {
 
 func doubleTapRightOption() {
     func tapOnce() {
-        // Option 是修饰键，必须用 flagsChanged 事件，而非 keyDown/keyUp
-        let down = CGEvent(keyboardEventSource: nil, virtualKey: 61, keyDown: true)
+        let src = CGEventSource(stateID: .combinedSessionState)
+        // Option 是修饰键，必须用 flagsChanged；flags 同时设 maskAlternate 和右侧设备位
+        let down = CGEvent(keyboardEventSource: src, virtualKey: 61, keyDown: true)
         down?.type = .flagsChanged
-        down?.flags = .maskAlternate
+        down?.flags = CGEventFlags(rawValue: CGEventFlags.maskAlternate.rawValue | 0x00000040)
         down?.post(tap: .cgSessionEventTap)
 
-        let up = CGEvent(keyboardEventSource: nil, virtualKey: 61, keyDown: false)
+        let up = CGEvent(keyboardEventSource: src, virtualKey: 61, keyDown: false)
         up?.type = .flagsChanged
         up?.flags = []
         up?.post(tap: .cgSessionEventTap)
     }
 
     tapOnce()
-    usleep(18_000)
+    usleep(180_000)  // 180ms，与 Hammerspoon OPTION_DOUBLE_TAP_INTERVAL = 0.18 一致
     tapOnce()
 }
 
