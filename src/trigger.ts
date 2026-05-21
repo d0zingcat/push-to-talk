@@ -1,31 +1,44 @@
 import { environment, getPreferenceValues, showHUD, showToast, Toast } from "@raycast/api";
-import { execFile } from "child_process";
+import { spawn } from "child_process";
 import path from "path";
 
 interface Preferences {
   targetInputSource: string;
-  restoreDelay: string; // Raycast textfield 返回 string，需手动 parse
-}
-
-function runHelper(args: string[]): Promise<{ stdout: string; exitCode: number }> {
-  const helperPath = path.join(environment.assetsPath, "doubao-ime-helper");
-  return new Promise((resolve) => {
-    execFile(helperPath, args, (error, stdout) => {
-      resolve({
-        stdout,
-        exitCode: error ? (error.code ?? 1) : 0,
-      });
-    });
-  });
+  restoreDelay: string;
 }
 
 export default async function main() {
   const { targetInputSource, restoreDelay } = getPreferenceValues<Preferences>();
   const delayMs = parseInt(restoreDelay, 10) || 3000;
 
-  const { stdout, exitCode } = await runHelper(["switch-and-trigger", "--target", targetInputSource]);
+  const helperPath = path.join(environment.assetsPath, "doubao-ime-helper");
 
-  if (exitCode === 3) {
+  // 以后台分离进程启动，TypeScript 进程退出后 Swift Helper 继续独立运行完整流程
+  const child = spawn(helperPath, ["full-flow", "--target", targetInputSource, "--delay", String(delayMs)], {
+    detached: true,
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+
+  // 等 300ms：足够捕获"找不到输入法"或"无辅助功能权限"等立即失败的情况
+  const earlyExitCode = await new Promise<number | null>((resolve) => {
+    let settled = false;
+
+    child.on("exit", (code) => {
+      if (!settled) {
+        settled = true;
+        resolve(code);
+      }
+    });
+
+    setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(null); // 仍在运行，视为正常
+      }
+    }, 300);
+  });
+
+  if (earlyExitCode === 3) {
     await showToast({
       style: Toast.Style.Failure,
       title: "缺少辅助功能权限",
@@ -34,7 +47,7 @@ export default async function main() {
     return;
   }
 
-  if (exitCode !== 0) {
+  if (earlyExitCode === 2) {
     await showToast({
       style: Toast.Style.Failure,
       title: "切换输入法失败",
@@ -43,11 +56,17 @@ export default async function main() {
     return;
   }
 
-  const previousSource = stdout.trim();
+  if (earlyExitCode !== null && earlyExitCode !== 0) {
+    await showToast({
+      style: Toast.Style.Failure,
+      title: "执行失败",
+      message: `Helper 退出码: ${earlyExitCode}`,
+    });
+    return;
+  }
+
+  // Helper 仍在后台运行，解除父进程对它的引用，让它独立完成剩余工作
+  child.unref();
 
   await showHUD("语音输入中…");
-
-  await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
-
-  await runHelper(["restore", "--target", previousSource]);
 }

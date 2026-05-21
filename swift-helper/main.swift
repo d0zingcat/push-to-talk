@@ -50,7 +50,7 @@ func doubleTapLeftOption() {
     tapOnce()
 }
 
-// MARK: - CLI Entry
+// MARK: - CLI Argument Parsers
 
 func parseTarget(from args: [String]) -> String {
     guard let idx = args.firstIndex(of: "--target"), idx + 1 < args.count else {
@@ -60,26 +60,44 @@ func parseTarget(from args: [String]) -> String {
     return args[idx + 1]
 }
 
+func parseDelay(from args: [String]) -> UInt32 {
+    guard let idx = args.firstIndex(of: "--delay"), idx + 1 < args.count,
+          let ms = UInt32(args[idx + 1]) else {
+        return 3000
+    }
+    return ms
+}
+
+// MARK: - CLI Entry
+
 let args = CommandLine.arguments
 
 guard args.count >= 2 else {
-    fputs("Usage: doubao-ime-helper <switch-and-trigger|restore> --target <name>\n", stderr)
+    fputs("Usage: doubao-ime-helper <full-flow|restore> --target <name> [--delay <ms>]\n", stderr)
     exit(1)
 }
 
 switch args[1] {
-case "switch-and-trigger":
+case "full-flow":
+    // 完整流程：切换 → 双击 Option → 等待 → 恢复。作为后台进程运行，与 TypeScript 进程完全分离。
     let target = parseTarget(from: args)
+    let delayMs = parseDelay(from: args)
+
     let previous = getCurrentInputSourceName() ?? ""
-    print(previous)  // stdout 输出当前输入法名，供 TypeScript 侧读取
 
     guard selectInputSource(named: target) else {
         fputs("Error: input source '\(target)' not found\n", stderr)
         exit(2)
     }
-    usleep(100_000)  // 等 100ms 让切换生效，再模拟按键
+    usleep(100_000)  // 等 100ms 让切换生效
     checkAccessibilityPermission()
     doubleTapLeftOption()
+
+    usleep(delayMs * 1000)  // 等待用户语音输入（毫秒转微秒）
+
+    if !previous.isEmpty {
+        _ = selectInputSource(named: previous)
+    }
 
 case "restore":
     let target = parseTarget(from: args)
