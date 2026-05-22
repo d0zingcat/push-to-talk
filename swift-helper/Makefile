@@ -4,7 +4,7 @@ build:
 	swiftc main.swift \
 		-framework Carbon \
 		-framework CoreGraphics \
-		-o ../assets/doubao-ime-helper
+		-o ../assets/pushtotalk
 
 clean:
-	rm -f ../assets/doubao-ime-helper
+	rm -f ../assets/pushtotalk

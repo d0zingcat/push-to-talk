@@ -11,7 +11,7 @@ export default async function main() {
   const { targetInputSource, restoreDelay } = getPreferenceValues<Preferences>();
   const delayMs = parseInt(restoreDelay, 10) || 3000;
 
-  const helperPath = path.join(environment.assetsPath, "doubao-ime-helper");
+  const helperPath = path.join(environment.assetsPath, "pushtotalk");
 
   // 以后台分离进程启动，TypeScript 进程退出后 Swift Helper 继续独立运行完整流程
   const child = spawn(helperPath, ["full-flow", "--target", targetInputSource, "--delay", String(delayMs)], {

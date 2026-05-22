@@ -1,6 +1,6 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
-  "name": "doubao-ime",
+  "name": "pushtotalk",
   "title": "豆包语音输入",
   "description": "一键切换豆包输入法并触发语音输入，结束后自动恢复原输入法",
   "icon": "extension-icon.png",
