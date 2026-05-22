@@ -31,11 +31,14 @@ jobs:
           swift tests/check-swift-only-project.swift
           swift tests/check-daemon-release-flow.swift
 
+      - name: Install create-dmg
+        run: brew install create-dmg
+
       - name: Package distribution archive
         run: |
           mkdir -p dist
           # Package required installer scripts (daemon & GUI), universal binary assets, and docs
-          zip -r dist/pushtotalk.zip \
+          zip -r dist/PushToTalk.zip \
             install-daemon.sh \
             uninstall-daemon.sh \
             restart-daemon.sh \
@@ -44,6 +47,8 @@ jobs:
             assets/pushtotalk \
             assets/PushToTalk.app \
             README.md
+          chmod +x package-dmg.sh
+          ./package-dmg.sh
 
       - name: Run Semantic Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
