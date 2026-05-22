@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CODESIGN_IDENTITY="${PUSHTOTALK_CODESIGN_IDENTITY:-}"
+BUNDLE_ID="com.pushtotalk.PushToTalk"
 
 echo "==> 编译并打包 GUI App..."
 make -C "$SCRIPT_DIR/swift-helper"
@@ -34,14 +35,11 @@ cp -R "$SCRIPT_DIR/assets/PushToTalk.app" "$APP_DEST"
 
 if [[ -n "$CODESIGN_IDENTITY" ]]; then
     echo "==> 使用代码签名身份对 App 进行深层签名: $CODESIGN_IDENTITY"
-    codesign --force --deep --sign "$CODESIGN_IDENTITY" "$APP_DEST"
+    codesign --force --deep --sign "$CODESIGN_IDENTITY" --identifier "$BUNDLE_ID" "$APP_DEST"
 else
     echo "==> 未设置 PUSHTOTALK_CODESIGN_IDENTITY，默认使用本地 Ad-hoc 签名 (-)..."
-    codesign --force --deep --sign - "$APP_DEST"
+    codesign --force --deep --sign - --identifier "$BUNDLE_ID" "$APP_DEST"
 fi
-
-echo "==> 重置 macOS 辅助功能 (Accessibility) 权限缓存，以避免由于二进制或签名改变导致的系统缓存失效..."
-tccutil reset Accessibility com.pushtotalk.PushToTalk || true
 
 echo "==> 启动 PushToTalk App..."
 open "$APP_DEST"
@@ -51,6 +49,8 @@ echo "✓ 安装完成并已成功启动！"
 echo "  你会在菜单栏右上角看到一个麦克风/波形图标。"
 echo ""
 echo "  重要提示："
-echo "  1. 首次打开如果提示权限，请按引导在「系统设置 → 隐私与安全性 → 辅助功能」授权：PushToTalk.app"
+echo "  1. 首次打开如果提示权限，请在「系统设置 → 隐私与安全性」里授权："
+echo "     - 辅助功能：允许 PushToTalk 模拟语音触发按键"
+echo "     - 输入监控：允许 PushToTalk 监听右 Command"
 echo "  2. 如果重新编译过，macOS 可能会使之前的权限失效，你可以通过重新签名或者在系统设置中删除后再重新添加授权来解决。"
 echo ""
