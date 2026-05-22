@@ -89,6 +89,25 @@ func doubleTapRightOption() {
     tapRightOptionOnce()
 }
 
+func simulateFnDown() {
+    let src = CGEventSource(stateID: .combinedSessionState)
+    let flags = CGEventFlags.maskSecondaryFn
+    let down = CGEvent(keyboardEventSource: src, virtualKey: 63, keyDown: true)
+    down?.type = .flagsChanged
+    down?.flags = flags
+    down?.post(tap: .cgSessionEventTap)
+    logDaemon("posted Fn down")
+}
+
+func simulateFnUp() {
+    let src = CGEventSource(stateID: .combinedSessionState)
+    let up = CGEvent(keyboardEventSource: src, virtualKey: 63, keyDown: false)
+    up?.type = .flagsChanged
+    up?.flags = []
+    up?.post(tap: .cgSessionEventTap)
+    logDaemon("posted Fn up")
+}
+
 // MARK: - Daemon State（全局，供 CGEventTap callback 使用）
 
 struct AppConfig: Codable {
@@ -101,6 +120,7 @@ struct AppConfig: Codable {
     var optionPressDelay: TimeInterval?
     var triggerFlagRaw: UInt64?
     var simulateFlagRaw: UInt64?
+    var listeningMode: String?
 
     enum CodingKeys: String, CodingKey {
         case targetIME = "target_ime"
@@ -112,6 +132,7 @@ struct AppConfig: Codable {
         case optionPressDelay = "option_press_delay"
         case triggerFlagRaw = "trigger_flag_raw"
         case simulateFlagRaw = "simulate_flag_raw"
+        case listeningMode = "listening_mode"
     }
 }
 
@@ -135,6 +156,7 @@ func loadConfig() -> AppConfig {
 let loadedConfig = loadConfig()
 
 var daemonTargetIME = loadedConfig.targetIME ?? "豆包输入法"
+var daemonListeningMode = loadedConfig.listeningMode ?? "double_tap_option"
 var daemonTriggerKeycode = loadedConfig.triggerKeycode ?? 54
 var daemonSimulateKeycode = loadedConfig.simulateKeycode ?? 61
 var daemonRestoreDelay = loadedConfig.restoreDelay ?? 3.0
@@ -213,11 +235,16 @@ func daemonActivateVoiceSession() {
     logDaemon("waiting \(Int(DAEMON_INPUT_SOURCE_SETTLE_DELAY * 1000))ms for input source settle")
     DispatchQueue.main.asyncAfter(deadline: .now() + DAEMON_INPUT_SOURCE_SETTLE_DELAY) {
         guard daemonRightCmdIsDown, daemonVoiceSessionIsActive else { return }
-        logDaemon("starting right-option double tap, current='\(getCurrentInputSourceName() ?? "")'")
-        tapRightOptionOnce()
-        DispatchQueue.main.asyncAfter(deadline: .now() + DAEMON_OPTION_TAP_INTERVAL) {
-            guard daemonRightCmdIsDown, daemonVoiceSessionIsActive else { return }
+        if daemonListeningMode == "long_press_fn" {
+            logDaemon("starting Fn long press, current='\(getCurrentInputSourceName() ?? "")'")
+            simulateFnDown()
+        } else {
+            logDaemon("starting right-option double tap, current='\(getCurrentInputSourceName() ?? "")'")
             tapRightOptionOnce()
+            DispatchQueue.main.asyncAfter(deadline: .now() + DAEMON_OPTION_TAP_INTERVAL) {
+                guard daemonRightCmdIsDown, daemonVoiceSessionIsActive else { return }
+                tapRightOptionOnce()
+            }
         }
     }
 }
@@ -238,6 +265,10 @@ func daemonOnRightCmdUp() {
         }
     }
     logDaemon("right-command up")
+
+    if daemonListeningMode == "long_press_fn" {
+        simulateFnUp()
+    }
 
     // 延迟 3 秒后恢复原输入法（给豆包时间完成识别和插字）
     let previous = daemonPreviousInputSource
@@ -527,18 +558,33 @@ struct MainMenuView: View {
             Divider()
             
             // Core controls
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Target Input Method")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.secondary)
-                
-                Picker("", selection: $state.targetIME) {
-                    ForEach(state.availableIMEs, id: \.self) { ime in
-                        Text(ime).tag(ime)
+            VStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Target Input Method")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    
+                    Picker("", selection: $state.targetIME) {
+                        ForEach(state.availableIMEs, id: \.self) { ime in
+                            Text(ime).tag(ime)
+                        }
                     }
+                    .pickerStyle(MenuPickerStyle())
+                    .frame(maxWidth: .infinity)
                 }
-                .pickerStyle(MenuPickerStyle())
-                .frame(maxWidth: .infinity)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Listening Mode")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    
+                    Picker("", selection: $state.listeningMode) {
+                        Text("Double-tap Option").tag("double_tap_option")
+                        Text("Long-press Fn").tag("long_press_fn")
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    .frame(maxWidth: .infinity)
+                }
             }
             .padding(.horizontal)
             
@@ -749,6 +795,14 @@ class AppStateManager: ObservableObject {
             }
         }
     }
+    @Published var listeningMode: String = "double_tap_option" {
+        didSet {
+            if listeningMode != daemonListeningMode {
+                daemonListeningMode = listeningMode
+                saveConfig()
+            }
+        }
+    }
 
     @Published var hasPermission: Bool = false
     @Published var voiceSessionIsActive: Bool = false
@@ -762,6 +816,7 @@ class AppStateManager: ObservableObject {
 
     init() {
         self.targetIME = daemonTargetIME
+        self.listeningMode = daemonListeningMode
         self.restoreDelay = daemonRestoreDelay
         self.settleDelay = daemonSettleDelay
         self.optionTapInterval = daemonOptionTapInterval
@@ -785,12 +840,21 @@ class AppStateManager: ObservableObject {
     func getAvailableInputSources() -> [String] {
         let list = TISCreateInputSourceList(nil, false).takeRetainedValue() as! [TISInputSource]
         var names = Set<String>()
+        let allowed = ["微信输入法", "豆包输入法", "typeless"]
         for src in list {
             if let name = getInputSourceName(src) {
-                names.insert(name)
+                if allowed.contains(name) {
+                    names.insert(name)
+                }
             }
         }
-        return names.sorted()
+        var result = Array(names)
+        for item in allowed {
+            if !result.contains(item) {
+                result.append(item)
+            }
+        }
+        return result.sorted()
     }
 
     func requestPermission() {
@@ -813,11 +877,13 @@ class AppStateManager: ObservableObject {
         self.settleDelay = 0.3
         self.optionTapInterval = 0.18
         self.optionPressDelay = 0.3
+        self.listeningMode = "double_tap_option"
     }
 
     func saveConfig() {
         var cfg = AppConfig()
         cfg.targetIME = targetIME
+        cfg.listeningMode = listeningMode
         cfg.restoreDelay = restoreDelay
         cfg.settleDelay = settleDelay
         cfg.optionTapInterval = optionTapInterval
