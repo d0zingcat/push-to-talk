@@ -3,7 +3,7 @@ set -euo pipefail
 
 TARGET_IME="${1:-豆包输入法}"
 BINARY_DIR="$HOME/.local/bin"
-BINARY="$BINARY_DIR/pushtotalk-helper"
+BINARY="$BINARY_DIR/pushtotalk"
 PLIST_LABEL="com.pushtotalk.daemon"
 PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,7 +13,7 @@ make -C "$SCRIPT_DIR/swift-helper"
 
 echo "==> 安装二进制到 $BINARY..."
 mkdir -p "$BINARY_DIR"
-cp "$SCRIPT_DIR/assets/pushtotalk-helper" "$BINARY"
+cp "$SCRIPT_DIR/assets/pushtotalk" "$BINARY"
 chmod +x "$BINARY"
 
 echo "==> 写入 LaunchAgent: $PLIST_PATH"
