@@ -3,7 +3,7 @@ set -euo pipefail
 
 PLIST_LABEL="com.pushtotalk.daemon"
 PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
-BINARY="$HOME/.local/bin/pushtotalk-helper"
+BINARY="$HOME/.local/bin/pushtotalk"
 
 echo "==> 停止并卸载 LaunchAgent..."
 launchctl unload "$PLIST_PATH" 2>/dev/null && echo "  已停止" || echo "  (未在运行)"
