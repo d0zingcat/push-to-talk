@@ -142,10 +142,16 @@ The install script signs `~/.local/bin/pushtotalk` after copying it. Use the sam
 
 macOS may require two privacy permissions:
 
-- Accessibility, because the daemon posts Right Option events to trigger Doubao.
-- Input Monitoring, because the daemon observes global right Command key events.
+- Accessibility, because PushToTalk posts Right Option events to trigger Doubao.
+- Input Monitoring, because PushToTalk observes global right Command key events.
 
-Grant both permissions to:
+For the GUI app, grant both permissions to:
+
+```text
+PushToTalk.app
+```
+
+For the CLI daemon, grant both permissions to:
 
 ```text
 ~/.local/bin/pushtotalk

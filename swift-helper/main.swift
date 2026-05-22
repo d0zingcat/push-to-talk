@@ -47,13 +47,20 @@ func selectInputSource(named name: String) -> Bool {
 
 // MARK: - Accessibility Permission Check
 
-func hasAccessibilityPermission(prompt: Bool = false) -> Bool {
+func checkAccessibilityPermission(prompt: Bool = false) -> Bool {
     let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: prompt] as CFDictionary
     return AXIsProcessTrustedWithOptions(options)
 }
 
+func checkInputMonitoringPermission(prompt: Bool = false) -> Bool {
+    if prompt {
+        return CGRequestListenEventAccess()
+    }
+    return CGPreflightListenEventAccess()
+}
+
 func requireAccessibilityPermission(prompt: Bool = false) {
-    guard hasAccessibilityPermission(prompt: prompt) else {
+    guard checkAccessibilityPermission(prompt: prompt) else {
         fputs("Error: accessibility permission required.\nGo to System Settings → Privacy & Security → Accessibility and grant access.\n", stderr)
         exit(3)
     }
@@ -395,8 +402,12 @@ case "daemon":
     // Push-to-Talk 守护进程：按住右 Command 说话，松开停止，3 秒后恢复输入法
     daemonTargetIME = parseTarget(from: args)
 
-    if !hasAccessibilityPermission(prompt: false) {
+    if !checkAccessibilityPermission(prompt: false) {
         fputs("Error: daemon requires Accessibility permission to post right Option events.\nGrant access to ~/.local/bin/pushtotalk in System Settings → Privacy & Security → Accessibility, then run ./restart-daemon.sh.\n", stderr)
+        exit(3)
+    }
+    if !checkInputMonitoringPermission(prompt: false) {
+        fputs("Error: daemon requires Input Monitoring permission to observe right Command events.\nGrant access to ~/.local/bin/pushtotalk in System Settings → Privacy & Security → Input Monitoring, then run ./restart-daemon.sh.\n", stderr)
         exit(3)
     }
 
@@ -409,7 +420,7 @@ case "daemon":
         callback: daemonEventCallback,
         userInfo: nil
     ) else {
-        fputs("Error: failed to create CGEventTap. Make sure accessibility permission is granted.\n", stderr)
+        fputs("Error: failed to create CGEventTap. Make sure Input Monitoring permission is granted.\n", stderr)
         exit(1)
     }
     daemonEventTap = tap
@@ -597,11 +608,27 @@ struct MainMenuView: View {
                             .font(.system(size: 16))
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Accessibility Permission Required")
+                            if !state.hasAccessibilityPermission {
+                                Text("Accessibility Permission Required")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text("Grant access to let PushToTalk simulate the voice trigger.")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                            if !state.hasInputMonitoringPermission {
+                                Text("Input Monitoring Permission Required")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text("Grant access to let PushToTalk listen for Right Command.")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                            if state.hasAccessibilityPermission && state.hasInputMonitoringPermission {
+                                Text("Permission Required")
                                 .font(.system(size: 11, weight: .bold))
-                            Text("To simulate Right Option key and switch input methods, please grant permission.")
+                                Text("Grant access to enable push-to-talk.")
                                 .font(.system(size: 9))
                                 .foregroundColor(.secondary)
+                            }
                         }
                     }
                     
@@ -805,6 +832,8 @@ class AppStateManager: ObservableObject {
     }
 
     @Published var hasPermission: Bool = false
+    @Published var hasAccessibilityPermission: Bool = false
+    @Published var hasInputMonitoringPermission: Bool = false
     @Published var voiceSessionIsActive: Bool = false
     @Published var logs: [String] = []
     @Published var availableIMEs: [String] = []
@@ -821,7 +850,9 @@ class AppStateManager: ObservableObject {
         self.settleDelay = daemonSettleDelay
         self.optionTapInterval = daemonOptionTapInterval
         self.optionPressDelay = daemonOptionPressDelay
-        self.hasPermission = hasAccessibilityPermission(prompt: false)
+        self.hasAccessibilityPermission = checkAccessibilityPermission(prompt: false)
+        self.hasInputMonitoringPermission = checkInputMonitoringPermission(prompt: false)
+        self.hasPermission = self.hasAccessibilityPermission && self.hasInputMonitoringPermission
         self.availableIMEs = getAvailableInputSources()
         
         let plistURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents/com.pushtotalk.gui.plist")
@@ -829,9 +860,15 @@ class AppStateManager: ObservableObject {
     }
 
     func refreshPermissionState() {
-        let perm = hasAccessibilityPermission(prompt: false)
-        if perm != self.hasPermission {
+        let accessibility = checkAccessibilityPermission(prompt: false)
+        let inputMonitoring = checkInputMonitoringPermission(prompt: false)
+        let perm = accessibility && inputMonitoring
+        if accessibility != self.hasAccessibilityPermission ||
+            inputMonitoring != self.hasInputMonitoringPermission ||
+            perm != self.hasPermission {
             DispatchQueue.main.async {
+                self.hasAccessibilityPermission = accessibility
+                self.hasInputMonitoringPermission = inputMonitoring
                 self.hasPermission = perm
             }
         }
@@ -858,7 +895,13 @@ class AppStateManager: ObservableObject {
     }
 
     func requestPermission() {
-        _ = hasAccessibilityPermission(prompt: true)
+        if !hasAccessibilityPermission {
+            _ = checkAccessibilityPermission(prompt: true)
+        }
+        if !hasInputMonitoringPermission {
+            _ = checkInputMonitoringPermission(prompt: true)
+        }
+        refreshPermissionState()
     }
 
     func openSettings() {
@@ -997,6 +1040,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func enableEventTap() {
         if daemonEventTap != nil { return }
+        guard checkInputMonitoringPermission(prompt: false) else {
+            logDaemon("Error: Input Monitoring permission missing; cannot create CGEventTap.")
+            DispatchQueue.main.async {
+                AppStateManager.shared.hasInputMonitoringPermission = false
+                AppStateManager.shared.hasPermission = false
+            }
+            return
+        }
         
         let eventMask: CGEventMask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
         guard let tap = CGEvent.tapCreate(
@@ -1007,9 +1058,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             callback: daemonEventCallback,
             userInfo: nil
         ) else {
-            logDaemon("Error: failed to create CGEventTap. Accessibility permission missing?")
+            logDaemon("Error: failed to create CGEventTap. Input Monitoring permission missing?")
             DispatchQueue.main.async {
                 AppStateManager.shared.isEnabled = false
+                AppStateManager.shared.hasInputMonitoringPermission = false
                 AppStateManager.shared.hasPermission = false
             }
             return
@@ -1022,7 +1074,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         logDaemon("Event tap enabled in GUI mode.")
         
         DispatchQueue.main.async {
-            AppStateManager.shared.hasPermission = true
+            AppStateManager.shared.hasInputMonitoringPermission = true
+            AppStateManager.shared.hasPermission =
+                AppStateManager.shared.hasAccessibilityPermission &&
+                AppStateManager.shared.hasInputMonitoringPermission
         }
     }
 

@@ -3,6 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+CODESIGN_IDENTITY="${PUSHTOTALK_CODESIGN_IDENTITY:-}"
+BUNDLE_ID="com.pushtotalk.PushToTalk"
 
 echo "==> 编译 GUI App..."
 make -C swift-helper
@@ -19,6 +21,13 @@ mkdir -p "$DMG_STAGE"
 
 echo "==> 复制 PushToTalk.app 到暂存目录..."
 cp -R assets/PushToTalk.app "$DMG_STAGE/"
+
+echo "==> 签名 DMG 内的 PushToTalk.app..."
+if [[ -n "$CODESIGN_IDENTITY" ]]; then
+    codesign --force --deep --sign "$CODESIGN_IDENTITY" --identifier "$BUNDLE_ID" "$DMG_STAGE/PushToTalk.app"
+else
+    codesign --force --deep --sign - --identifier "$BUNDLE_ID" "$DMG_STAGE/PushToTalk.app"
+fi
 
 echo "==> 生成美化 DMG 文件..."
 mkdir -p dist

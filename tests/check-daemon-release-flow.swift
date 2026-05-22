@@ -39,6 +39,20 @@ require(
     "daemon should fail clearly when Accessibility permission is missing"
 )
 require(
+    source.contains("hasInputMonitoringPermission") &&
+        source.contains("CGPreflightListenEventAccess") &&
+        source.contains("CGRequestListenEventAccess"),
+    "daemon and GUI should check Input Monitoring separately from Accessibility"
+)
+require(
+    source.contains("daemon requires Input Monitoring permission to observe right Command events"),
+    "daemon should fail clearly when Input Monitoring permission is missing"
+)
+require(
+    source.contains("Input Monitoring Permission Required"),
+    "GUI should tell the user when Input Monitoring, not Accessibility, is the missing permission"
+)
+require(
     !source.contains("accessibility preflight returned false; attempting CGEventTap anyway"),
     "daemon should not continue after Accessibility preflight failure"
 )
