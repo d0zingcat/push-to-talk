@@ -41,5 +41,13 @@ require(readme.contains("./restart-daemon.sh"), "README should document the daem
 require(readme.contains("PUSHTOTALK_CODESIGN_IDENTITY"), "README should document optional stable code signing")
 require(installScript.contains("PUSHTOTALK_CODESIGN_IDENTITY"), "install script should support optional stable code signing")
 require(installScript.contains("codesign --force --sign"), "install script should codesign the installed binary when an identity is provided")
+require(installScript.contains("LOG_DIR=\"$HOME/Library/Logs/pushtotalk\""), "install script should write daemon logs under the user Library Logs directory")
+require(installScript.contains("mkdir -p \"$LOG_DIR\""), "install script should create the daemon log directory")
+require(installScript.contains("$LOG_DIR/pushtotalk-daemon.log"), "install script should configure daemon stdout in the log directory")
+require(installScript.contains("$LOG_DIR/pushtotalk-daemon.err"), "install script should configure daemon stderr in the log directory")
+require(!installScript.contains("/tmp/pushtotalk"), "install script should not write daemon logs directly under /tmp")
+require(readme.contains("~/Library/Logs/pushtotalk/pushtotalk-daemon.log"), "README should document the user Library stdout log path")
+require(readme.contains("~/Library/Logs/pushtotalk/pushtotalk-daemon.err"), "README should document the user Library stderr log path")
+require(!readme.contains("/tmp/pushtotalk"), "README should not document /tmp daemon log paths")
 
 print("project is Swift-only")

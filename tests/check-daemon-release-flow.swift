@@ -28,11 +28,20 @@ require(source.contains("DAEMON_RIGHT_CMD_FLAG_RAW"), "right-command device flag
 require(source.contains("DAEMON_RIGHT_OPTION_FLAG_RAW"), "right-option device flag constant is missing")
 require(source.contains("daemonIgnoreRightCmdDownUntil"), "right-command release debounce state is missing")
 require(source.contains("DAEMON_RIGHT_CMD_RELEASE_SUPPRESS_INTERVAL"), "right-command release debounce interval is missing")
+require(source.contains("DAEMON_INPUT_SOURCE_SETTLE_DELAY"), "daemon should wait after switching input sources before tapping right Option")
 require(source.contains("daemonActivationItem"), "daemon should defer activation so short right-command taps do not switch IMEs")
 require(source.contains("daemonVoiceSessionIsActive"), "daemon should track whether a voice session actually started")
 require(source.contains("DAEMON_TAP_DISABLE_WINDOW"), "daemon should define an event tap disable fuse window")
 require(source.contains("DAEMON_TAP_DISABLE_MAX_COUNT"), "daemon should define an event tap disable fuse threshold")
 require(source.contains("exit(70)"), "daemon should exit after repeated event tap disable events")
+require(
+    source.contains("daemon requires Accessibility permission to post right Option events"),
+    "daemon should fail clearly when Accessibility permission is missing"
+)
+require(
+    !source.contains("accessibility preflight returned false; attempting CGEventTap anyway"),
+    "daemon should not continue after Accessibility preflight failure"
+)
 
 guard let tapStart = indexRange(source, "func tapRightOptionOnce()"),
       let doubleTapStart = indexRange(source, "func doubleTapRightOption()", from: tapStart.upperBound) else {
@@ -55,16 +64,16 @@ guard let releaseStart = indexRange(source, "func daemonOnRightCmdUp()"),
 }
 
 let releaseBody = String(source[releaseStart.lowerBound..<callbackStart.lowerBound])
-guard let firstTap = releaseBody.range(of: "tapRightOptionOnce()"),
-      let secondTap = releaseBody.range(of: "tapRightOptionOnce()", range: firstTap.upperBound..<releaseBody.endIndex),
+guard let releaseLog = releaseBody.range(of: #"logDaemon("right-command up")"#),
       let restoreSchedule = releaseBody.range(of: "DispatchQueue.main.asyncAfter(deadline: .now() + DAEMON_RESTORE_DELAY"),
       let suppressSchedule = releaseBody.range(of: "daemonIgnoreRightCmdDownUntil = Date().addingTimeInterval(DAEMON_RIGHT_CMD_RELEASE_SUPPRESS_INTERVAL)") else {
-    fputs("release flow is missing tap, restore, or suppress scheduling\n", stderr)
+    fputs("release flow is missing log, restore, or suppress scheduling\n", stderr)
     exit(1)
 }
 
-require(firstTap.lowerBound < secondTap.lowerBound, "release taps should be ordered")
-require(secondTap.lowerBound < restoreSchedule.lowerBound, "input-source restore should be scheduled after the stop double tap")
+require(!releaseBody.contains("tapRightOptionOnce()"), "right-command release should not post right Option taps")
+require(!releaseBody.contains("DAEMON_OPTION_TAP_INTERVAL"), "right-command release should not schedule a stop double tap")
+require(releaseLog.lowerBound < restoreSchedule.lowerBound, "input-source restore should be scheduled after right-command release")
 require(suppressSchedule.lowerBound < restoreSchedule.lowerBound, "release should suppress false right-command down events before restore")
 
 guard let callbackEnd = indexRange(source, "// MARK: - CLI Argument Parsers", from: callbackStart.upperBound) else {
@@ -110,6 +119,27 @@ require(
         downBody.contains("daemonActivateVoiceSession()"),
     "right-command down should schedule delayed activation instead of switching IMEs immediately"
 )
+
+guard let activateStart = indexRange(source, "func daemonActivateVoiceSession()"),
+      let activateEnd = indexRange(source, "func daemonOnRightCmdUp()", from: activateStart.upperBound) else {
+    fputs("daemonActivateVoiceSession function not found\n", stderr)
+    exit(1)
+}
+
+let activateBody = String(source[activateStart.lowerBound..<activateEnd.lowerBound])
+guard let switchResult = activateBody.range(of: "let switched = selectInputSource(named: daemonTargetIME)"),
+      let waitLog = activateBody.range(of: "waiting \\(Int(DAEMON_INPUT_SOURCE_SETTLE_DELAY * 1000))ms for input source settle"),
+      let settleSchedule = activateBody.range(of: "DispatchQueue.main.asyncAfter(deadline: .now() + DAEMON_INPUT_SOURCE_SETTLE_DELAY"),
+      let startLog = activateBody.range(of: "starting right-option double tap", range: settleSchedule.upperBound..<activateBody.endIndex),
+      let firstStartTap = activateBody.range(of: "tapRightOptionOnce()", range: settleSchedule.upperBound..<activateBody.endIndex) else {
+    fputs("activation flow should log settle wait, wait for settle delay, then tap right Option\n", stderr)
+    exit(1)
+}
+
+require(switchResult.lowerBound < waitLog.lowerBound, "daemon should log settle wait after switching to target IME")
+require(waitLog.lowerBound < settleSchedule.lowerBound, "daemon should log settle wait before scheduling the delay")
+require(settleSchedule.lowerBound < firstStartTap.lowerBound, "daemon should tap right Option only after input-source settle delay")
+require(startLog.lowerBound < firstStartTap.lowerBound, "daemon should log start immediately before the first right Option tap")
 
 let installScript = try String(contentsOfFile: "install-daemon.sh", encoding: .utf8)
 require(installScript.contains("<key>ThrottleInterval</key>"), "LaunchAgent should throttle restarts")

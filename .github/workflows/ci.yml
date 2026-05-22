@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  build-and-test:
+    name: Build, Test & Package
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build universal binary
+        run: |
+          make -C swift-helper
+
+      - name: Run automated compliance tests
+        run: |
+          swift tests/check-swift-only-project.swift
+          swift tests/check-daemon-release-flow.swift
+
+      - name: Package distribution archive
+        run: |
+          mkdir -p dist
+          # Package required installer scripts (daemon & GUI), universal binary assets, and docs
+          zip -r dist/pushtotalk.zip \
+            install-daemon.sh \
+            uninstall-daemon.sh \
+            restart-daemon.sh \
+            install-app.sh \
+            uninstall-app.sh \
+            assets/pushtotalk \
+            assets/PushToTalk.app \
+            README.md
+
+      - name: Run Semantic Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: cycjimmy/semantic-release-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

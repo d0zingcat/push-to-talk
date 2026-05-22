@@ -14,22 +14,25 @@ Doubao IME has good voice recognition, but it is not always a good daily-driver 
 Hold Right Command
   -> record current IME
   -> switch to Doubao IME
-  -> after 300ms: double-tap Right Option to start recording
+  -> wait 300ms for the input source switch to settle
+  -> double-tap Right Option to start recording
 
 Release Right Command
-  -> double-tap Right Option to stop recording
-  -> after 3s: restore original IME
+  -> Doubao stops recording from the released hold key
+  -> after 3s: restore original IME (or restore immediately if any key is pressed to start typing)
 ```
 
-The delay after release gives Doubao time to finish recognition and insert text before the input method switches away.
+The delay after release gives Doubao time to finish recognition and insert text before the input method switches away. If you start typing manually during this 3-second window, the tool detects the keystrokes and restores your original input method immediately.
 
 ## Implementation
 
 | Layer | File | Purpose |
 |-------|------|---------|
-| Swift CLI | `swift-helper/main.swift` | Input source switching, listen-only global key event tap, Right Option simulation, command parsing |
-| Build | `swift-helper/Makefile` | Compiles the helper to `assets/pushtotalk` |
-| LaunchAgent install | `install-daemon.sh` | Builds, installs, and loads the background daemon |
+| GUI & CLI | `swift-helper/main.swift` | Input source switching, listen-only global key event tap, Right Option simulation, command parsing, SwiftUI Menu Bar UI |
+| Build | `swift-helper/Makefile` | Compiles the helper and packages `assets/PushToTalk.app` |
+| GUI install | `install-app.sh` | Builds, installs, and launches the GUI app |
+| GUI uninstall | `uninstall-app.sh` | Removes the GUI app and login items |
+| LaunchAgent install | `install-daemon.sh` | Builds, installs, and loads the background CLI daemon |
 | LaunchAgent restart | `restart-daemon.sh` | Reloads the daemon without rebuilding or replacing the binary |
 | LaunchAgent uninstall | `uninstall-daemon.sh` | Stops and removes the daemon |
 
@@ -45,6 +48,7 @@ The daemon is designed to fail conservatively:
 
 - The event tap is listen-only, so right Command events still pass through to the system.
 - Short right Command taps do not switch IMEs. The daemon only activates after the key remains down for 300ms.
+- After switching to Doubao, the daemon waits another 300ms before tapping Right Option so the target IME can receive the trigger.
 - If macOS disables the event tap repeatedly, the daemon exits with code 70 instead of continually touching the input event path.
 - The LaunchAgent uses `ThrottleInterval` to avoid rapid restart loops.
 - If the target IME cannot be selected, the current press is abandoned and no simulated Option events are posted.
@@ -55,12 +59,16 @@ The daemon is designed to fail conservatively:
 pushtotalk/
 ├── swift-helper/
 │   ├── main.swift
+│   ├── Info.plist
 │   └── Makefile
 ├── assets/
-│   └── pushtotalk
+│   ├── pushtotalk
+│   └── PushToTalk.app/
 ├── tests/
 │   ├── check-daemon-release-flow.swift
 │   └── check-swift-only-project.swift
+├── install-app.sh
+├── uninstall-app.sh
 ├── install-daemon.sh
 ├── restart-daemon.sh
 ├── uninstall-daemon.sh
@@ -75,19 +83,38 @@ pushtotalk/
 
 ## Install
 
+### GUI App (Recommended)
+
+To install the native Menu Bar GUI app:
+
+```bash
+./install-app.sh
+```
+
+The GUI installer:
+1. Compiles the Swift helper and packages the `PushToTalk.app` bundle in `assets/`.
+2. Copies the app to `/Applications` (or `~/Applications`).
+3. Stops any conflicting legacy CLI LaunchAgents.
+4. Launches the GUI app.
+
+Once launched, click the microphone/waveform icon in the system menu bar to select your target voice input method and customize delays dynamically.
+
+### CLI Daemon (Background LaunchAgent)
+
+If you prefer running a pure CLI daemon in the background without any GUI:
+
 ```bash
 ./install-daemon.sh
 ```
 
-If your Doubao IME has a different localized name, pass the exact name:
+If your target voice input method has a different localized name, pass it to the installer:
 
 ```bash
 ./install-daemon.sh "豆包输入法"
 ```
 
-The installer:
-
-1. Compiles `swift-helper/main.swift` to `assets/pushtotalk`.
+The CLI installer:
+1. Compiles the Swift helper.
 2. Copies the binary to `~/.local/bin/pushtotalk`.
 3. Optionally signs the installed binary if `PUSHTOTALK_CODESIGN_IDENTITY` is set.
 4. Writes `~/Library/LaunchAgents/com.pushtotalk.daemon.plist`.
@@ -111,11 +138,14 @@ PUSHTOTALK_CODESIGN_IDENTITY="<identity name or hash>" ./install-daemon.sh
 
 The install script signs `~/.local/bin/pushtotalk` after copying it. Use the same `PUSHTOTALK_CODESIGN_IDENTITY` whenever you reinstall a rebuilt binary.
 
-## Accessibility Permission
+## Privacy Permissions
 
-macOS requires Accessibility permission because the daemon reads global keyboard events and posts Right Option events.
+macOS may require two privacy permissions:
 
-Grant permission to:
+- Accessibility, because the daemon posts Right Option events to trigger Doubao.
+- Input Monitoring, because the daemon observes global right Command key events.
+
+Grant both permissions to:
 
 ```text
 ~/.local/bin/pushtotalk
@@ -136,8 +166,8 @@ Once installed, hold **Right Command** to talk and release it to stop.
 The daemon runs in the background. Logs are written to:
 
 ```text
-/tmp/pushtotalk-daemon.log
-/tmp/pushtotalk-daemon.err
+~/Library/Logs/pushtotalk/pushtotalk-daemon.log
+~/Library/Logs/pushtotalk/pushtotalk-daemon.err
 ```
 
 Restart the daemon without rebuilding or replacing the binary:
@@ -156,6 +186,45 @@ The binary supports these subcommands:
 | `pushtotalk full-flow --target <name> --delay <ms>` | Run one switch, trigger, wait, restore cycle |
 | `pushtotalk restore --target <name>` | Switch to a named input source |
 | `pushtotalk check-permission` | Prompt for and verify Accessibility permission |
+| `pushtotalk list-sources` | List all available keyboard input source names |
+
+## Configuration
+
+You can customize trigger keys, simulated keys, and various delays by creating a JSON configuration file at `~/.config/pushtotalk/config.json`.
+
+Example configuration with all default values:
+
+```json
+{
+  "target_ime": "豆包输入法",
+  "trigger_keycode": 54,
+  "trigger_flag_raw": 16,
+  "simulate_keycode": 61,
+  "simulate_flag_raw": 64,
+  "restore_delay": 3.0,
+  "settle_delay": 0.3,
+  "option_tap_interval": 0.18,
+  "option_press_delay": 0.3
+}
+```
+
+### Parameter Reference
+
+*   `target_ime`: The name of the target voice IME (default: `"豆包输入法"`).
+*   `trigger_keycode`: Virtual key code to hold to talk (default: `54` for Right Command).
+*   `trigger_flag_raw`: Device raw flag mask for the hold key (default: `16` / `0x00000010` for Right Command).
+*   `simulate_keycode`: Virtual key code to simulate (default: `61` for Right Option).
+*   `simulate_flag_raw`: Device raw flag mask for the simulated key (default: `64` / `0x00000040` for Right Option).
+*   `restore_delay`: Delay in seconds before restoring original input source (default: `3.0`).
+*   `settle_delay`: Delay in seconds after IME switch before simulating taps (default: `0.3`).
+*   `option_tap_interval`: Delay in seconds between simulated key taps (default: `0.18`).
+*   `option_press_delay`: Delay in seconds the hold key must be kept down to trigger the IME switch (default: `0.3`).
+
+After creating or modifying the configuration file, restart the daemon to apply changes:
+
+```bash
+./restart-daemon.sh
+```
 
 ## Troubleshooting
 
@@ -164,10 +233,12 @@ The binary supports these subcommands:
 Check the error log:
 
 ```bash
-cat /tmp/pushtotalk-daemon.err
+cat ~/Library/Logs/pushtotalk/pushtotalk-daemon.err
 ```
 
 If it says Accessibility permission is missing, grant permission to `~/.local/bin/pushtotalk`, then reload the LaunchAgent.
+
+If the daemon logs right Command events and `posted right-option tap` but Doubao does not open voice input, re-check Accessibility for the installed binary. Without that permission, the helper may run far enough to observe keys but macOS can still block the synthetic Right Option events.
 
 If the log says the event tap was disabled repeatedly and the daemon exited, check for system-wide input lag or permission changes, then restart with:
 
@@ -180,15 +251,13 @@ If the log says the event tap was disabled repeatedly and the daemon exited, che
 List installed input source names:
 
 ```bash
-swift - <<'EOF'
-import Carbon
-let list = TISCreateInputSourceList(nil, false).takeRetainedValue() as! [TISInputSource]
-for src in list {
-    if let ptr = TISGetInputSourceProperty(src, kTISPropertyLocalizedName) {
-        print(Unmanaged<CFString>.fromOpaque(ptr).takeUnretainedValue() as String)
-    }
-}
-EOF
+pushtotalk list-sources
+```
+
+Or if running the uninstalled/built asset directly:
+
+```bash
+assets/pushtotalk list-sources
 ```
 
 Then reinstall with the exact Doubao name:
@@ -199,15 +268,25 @@ Then reinstall with the exact Doubao name:
 
 **IME restores too early**
 
-The restore delay is controlled by `DAEMON_RESTORE_DELAY` in `swift-helper/main.swift`. Increase it and reinstall.
+You can increase the restore delay by setting `"restore_delay"` in `~/.config/pushtotalk/config.json` (e.g., to `4.0`), then run `./restart-daemon.sh`.
 
 ## Uninstall
+
+### GUI App
+
+To completely uninstall the GUI app and remove its autostart plist:
+
+```bash
+./uninstall-app.sh
+```
+
+### CLI Daemon
+
+To stop and uninstall the legacy CLI background LaunchAgent and helper binary:
 
 ```bash
 ./uninstall-daemon.sh
 ```
-
-This stops the daemon, removes the LaunchAgent plist, and deletes `~/.local/bin/pushtotalk`.
 
 ## Development
 

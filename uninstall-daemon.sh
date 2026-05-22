@@ -11,6 +11,8 @@ rm -f "$PLIST_PATH" && echo "  已删除 $PLIST_PATH"
 
 echo "==> 删除二进制..."
 rm -f "$BINARY" && echo "  已删除 $BINARY"
+echo "==> 清除 macOS 辅助功能 (Accessibility) 权限缓存..."
+tccutil reset Accessibility "$BINARY" || true
 
 echo ""
 echo "✓ 卸载完成。"
