@@ -8,6 +8,8 @@ build:
 	mkdir -p ../assets/PushToTalk.app/Contents/MacOS
 	cp ../assets/pushtotalk ../assets/PushToTalk.app/Contents/MacOS/PushToTalk
 	cp Info.plist ../assets/PushToTalk.app/Contents/Info.plist
+	mkdir -p ../assets/PushToTalk.app/Contents/Resources
+	cp AppIcon.icns ../assets/PushToTalk.app/Contents/Resources/AppIcon.icns
 
 clean:
 	rm -f ../assets/pushtotalk ../assets/pushtotalk-arm64 ../assets/pushtotalk-x86_64

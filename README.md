@@ -1,4 +1,4 @@
-# pushtotalk
+# PushToTalk
 
 Swift-only push-to-talk for Doubao IME voice input on macOS.
 
@@ -56,7 +56,7 @@ The daemon is designed to fail conservatively:
 ## Project structure
 
 ```text
-pushtotalk/
+push-to-talk/
 ├── swift-helper/
 │   ├── main.swift
 │   ├── Info.plist
