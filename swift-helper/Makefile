@@ -1,10 +1,14 @@
 .PHONY: build clean
 
 build:
-	swiftc main.swift \
-		-framework Carbon \
-		-framework CoreGraphics \
-		-o ../assets/pushtotalk
+	swiftc main.swift -target arm64-apple-macosx11.0 -framework Carbon -framework CoreGraphics -framework AppKit -framework SwiftUI -o ../assets/pushtotalk-arm64
+	swiftc main.swift -target x86_64-apple-macosx11.0 -framework Carbon -framework CoreGraphics -framework AppKit -framework SwiftUI -o ../assets/pushtotalk-x86_64
+	lipo -create ../assets/pushtotalk-arm64 ../assets/pushtotalk-x86_64 -output ../assets/pushtotalk
+	rm -f ../assets/pushtotalk-arm64 ../assets/pushtotalk-x86_64
+	mkdir -p ../assets/PushToTalk.app/Contents/MacOS
+	cp ../assets/pushtotalk ../assets/PushToTalk.app/Contents/MacOS/PushToTalk
+	cp Info.plist ../assets/PushToTalk.app/Contents/Info.plist
 
 clean:
-	rm -f ../assets/pushtotalk
+	rm -f ../assets/pushtotalk ../assets/pushtotalk-arm64 ../assets/pushtotalk-x86_64
+	rm -rf ../assets/PushToTalk.app
