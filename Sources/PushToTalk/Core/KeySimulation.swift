@@ -31,6 +31,31 @@ func doubleTapRightOption() {
     tapRightOptionOnce()
 }
 
+func temporarilyReleaseTriggerKey() {
+    let src = CGEventSource(stateID: .combinedSessionState)
+    let triggerKeycode = daemonTriggerKeycode
+    let up = CGEvent(keyboardEventSource: src, virtualKey: triggerKeycode, keyDown: false)
+    up?.type = .flagsChanged
+    up?.flags = []
+    daemonIgnoreSyntheticTriggerEventsUntil = Date().addingTimeInterval(0.25)
+    up?.post(tap: .cgSessionEventTap)
+    logDaemon("temporarily releasing trigger key virtualKey=\(triggerKeycode)")
+}
+
+func restoreTriggerKeyDown() {
+    let src = CGEventSource(stateID: .combinedSessionState)
+    let triggerKeycode = daemonTriggerKeycode
+    let triggerFlags = CGEventFlags(
+        rawValue: CGEventFlags.maskCommand.rawValue | daemonTriggerFlagRaw
+    )
+    let down = CGEvent(keyboardEventSource: src, virtualKey: triggerKeycode, keyDown: true)
+    down?.type = .flagsChanged
+    down?.flags = triggerFlags
+    daemonIgnoreSyntheticTriggerEventsUntil = Date().addingTimeInterval(0.25)
+    down?.post(tap: .cgSessionEventTap)
+    logDaemon("restoring trigger key virtualKey=\(triggerKeycode)")
+}
+
 func simulateFnDown() {
     let src = CGEventSource(stateID: .combinedSessionState)
     let flags = CGEventFlags.maskSecondaryFn

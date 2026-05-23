@@ -82,6 +82,8 @@ require(
 )
 require(tapBody.contains("up?.flags = []"), "right-option release should post a plain modifier release event")
 require(!tapBody.contains("currentRawFlags"), "right-option tap should not include held command flags")
+require(source.contains("temporarilyReleaseTriggerKey()"), "voice trigger should temporarily release the held trigger key before synthetic voice events")
+require(source.contains("restoreTriggerKeyDown()"), "voice trigger should restore the held trigger key after synthetic voice events")
 
 guard let releaseStart = indexRange(source, "func daemonOnRightCmdUp()"),
       let callbackStart = indexRange(source, "func daemonEventCallback", from: releaseStart.upperBound) else {

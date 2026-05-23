@@ -52,15 +52,18 @@ func daemonActivateVoiceSession() {
     logDaemon("waiting \(Int(DAEMON_INPUT_SOURCE_SETTLE_DELAY * 1000))ms for input source settle")
     DispatchQueue.main.asyncAfter(deadline: .now() + DAEMON_INPUT_SOURCE_SETTLE_DELAY) {
         guard daemonRightCmdIsDown, daemonVoiceSessionIsActive else { return }
+        temporarilyReleaseTriggerKey()
         if daemonListeningMode == "long_press_fn" {
             logDaemon("starting Fn long press, current='\(getCurrentInputSourceName() ?? "")'")
             simulateFnDown()
+            restoreTriggerKeyDown()
         } else {
             logDaemon("starting right-option double tap, current='\(getCurrentInputSourceName() ?? "")'")
             tapRightOptionOnce()
             DispatchQueue.main.asyncAfter(deadline: .now() + DAEMON_OPTION_TAP_INTERVAL) {
                 guard daemonRightCmdIsDown, daemonVoiceSessionIsActive else { return }
                 tapRightOptionOnce()
+                restoreTriggerKeyDown()
             }
         }
     }
@@ -154,6 +157,11 @@ func daemonEventCallback(
 
     let keycode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
     guard keycode == DAEMON_KEYCODE_RIGHT_CMD else { return Unmanaged.passUnretained(event) }
+
+    if Date() < daemonIgnoreSyntheticTriggerEventsUntil {
+        logDaemon("ignored synthetic trigger-key event")
+        return Unmanaged.passUnretained(event)
+    }
 
     let isRightCmdDown = (event.flags.rawValue & DAEMON_RIGHT_CMD_FLAG_RAW) != 0
     if isRightCmdDown {

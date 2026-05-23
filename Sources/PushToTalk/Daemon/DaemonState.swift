@@ -19,6 +19,7 @@ var daemonVoiceSessionIsActive = false
 var daemonActivationItem: DispatchWorkItem? = nil
 var daemonRestoreItem: DispatchWorkItem? = nil
 var daemonIgnoreRightCmdDownUntil = Date.distantPast
+var daemonIgnoreSyntheticTriggerEventsUntil = Date.distantPast
 var daemonEventTap: CFMachPort? = nil
 var daemonTapDisableEvents: [Date] = []
 
