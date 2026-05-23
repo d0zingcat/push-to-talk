@@ -21,7 +21,12 @@ for file in removedFiles {
 }
 
 let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
-let mainSwift = try String(contentsOfFile: "swift-helper/main.swift", encoding: .utf8)
+let helperSource = try FileManager.default
+    .contentsOfDirectory(atPath: "swift-helper")
+    .filter { $0.hasSuffix(".swift") }
+    .sorted()
+    .map { try String(contentsOfFile: "swift-helper/\($0)", encoding: .utf8) }
+    .joined(separator: "\n")
 let installScript = try String(contentsOfFile: "install-daemon.sh", encoding: .utf8)
 let installAppScript = try String(contentsOfFile: "install-app.sh", encoding: .utf8)
 let packageDmgScript = try String(contentsOfFile: "package-dmg.sh", encoding: .utf8)
@@ -34,7 +39,7 @@ require(
     "README should describe only the Swift implementation"
 )
 require(
-    swiftForbidden.firstMatch(in: mainSwift, range: NSRange(mainSwift.startIndex..<mainSwift.endIndex, in: mainSwift)) == nil,
+    swiftForbidden.firstMatch(in: helperSource, range: NSRange(helperSource.startIndex..<helperSource.endIndex, in: helperSource)) == nil,
     "Swift source should not describe removed integrations"
 )
 require(readme.contains("swift-helper/main.swift"), "README should document the Swift helper as the implementation entrypoint")

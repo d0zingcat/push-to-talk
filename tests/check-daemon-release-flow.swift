@@ -11,7 +11,19 @@ func indexRange(_ text: String, _ pattern: String, from start: String.Index? = n
     text.range(of: pattern, range: (start ?? text.startIndex)..<text.endIndex)
 }
 
-let source = try String(contentsOfFile: "swift-helper/main.swift", encoding: .utf8)
+let sourceFiles = [
+    "KeySimulation.swift",
+    "DaemonState.swift",
+    "DaemonController.swift",
+    "CLIArguments.swift",
+    "Permissions.swift",
+    "AppStateManager.swift",
+    "MenuView.swift",
+    "main.swift",
+]
+let source = try sourceFiles
+    .map { try String(contentsOfFile: "swift-helper/\($0)", encoding: .utf8) }
+    .joined(separator: "\n")
 
 let delayPattern = #"let DAEMON_RESTORE_DELAY:\s*TimeInterval\s*=\s*([0-9.]+)"#
 let delayRegex = try NSRegularExpression(pattern: delayPattern)
