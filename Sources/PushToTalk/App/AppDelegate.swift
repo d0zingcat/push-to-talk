@@ -45,12 +45,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem?.button else { return }
         if let popover = popover {
             if popover.isShown {
-                popover.performClose(sender)
+                closePopover(sender)
             } else {
+                NSApplication.shared.activate(ignoringOtherApps: true)
                 popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
                 popover.contentViewController?.view.window?.makeKey()
             }
         }
+    }
+
+    func applicationDidResignActive(_ notification: Notification) {
+        closePopover(nil)
+    }
+
+    private func closePopover(_ sender: AnyObject?) {
+        guard let popover = popover, popover.isShown else { return }
+        popover.performClose(sender)
     }
 
     func enableEventTap() {

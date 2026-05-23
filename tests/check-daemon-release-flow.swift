@@ -12,17 +12,17 @@ func indexRange(_ text: String, _ pattern: String, from start: String.Index? = n
 }
 
 let sourceFiles = [
-    "KeySimulation.swift",
-    "DaemonState.swift",
-    "DaemonController.swift",
-    "CLIArguments.swift",
-    "Permissions.swift",
-    "AppStateManager.swift",
-    "MenuView.swift",
-    "main.swift",
+    "Sources/PushToTalk/Core/KeySimulation.swift",
+    "Sources/PushToTalk/Daemon/DaemonState.swift",
+    "Sources/PushToTalk/Daemon/DaemonController.swift",
+    "Sources/PushToTalk/CLI/CLIArguments.swift",
+    "Sources/PushToTalk/Core/Permissions.swift",
+    "Sources/PushToTalk/App/AppStateManager.swift",
+    "Sources/PushToTalk/App/MenuView.swift",
+    "Sources/PushToTalk/main.swift",
 ]
 let source = try sourceFiles
-    .map { try String(contentsOfFile: "swift-helper/\($0)", encoding: .utf8) }
+    .map { try String(contentsOfFile: $0, encoding: .utf8) }
     .joined(separator: "\n")
 
 let delayPattern = #"let DAEMON_RESTORE_DELAY:\s*TimeInterval\s*=\s*([0-9.]+)"#
@@ -167,7 +167,7 @@ require(waitLog.lowerBound < settleSchedule.lowerBound, "daemon should log settl
 require(settleSchedule.lowerBound < firstStartTap.lowerBound, "daemon should tap right Option only after input-source settle delay")
 require(startLog.lowerBound < firstStartTap.lowerBound, "daemon should log start immediately before the first right Option tap")
 
-let installScript = try String(contentsOfFile: "install-daemon.sh", encoding: .utf8)
+let installScript = try String(contentsOfFile: "scripts/install-daemon.sh", encoding: .utf8)
 require(installScript.contains("<key>ThrottleInterval</key>"), "LaunchAgent should throttle restarts")
 require(installScript.contains("<integer>30</integer>"), "LaunchAgent restart throttle should be 30 seconds")
 

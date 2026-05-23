@@ -24,11 +24,11 @@ jobs:
 
       - name: Build universal binary
         run: |
-          make -C swift-helper
+          make -C packaging
 
       - name: Run automated compliance tests
         run: |
-          swift tests/check-swift-only-project.swift
+          swift tests/check-project-structure.swift
           swift tests/check-daemon-release-flow.swift
 
       - name: Install create-dmg
@@ -39,16 +39,13 @@ jobs:
           mkdir -p dist
           # Package required installer scripts (daemon & GUI), universal binary assets, and docs
           zip -r dist/PushToTalk.zip \
-            install-daemon.sh \
-            uninstall-daemon.sh \
-            restart-daemon.sh \
-            install-app.sh \
-            uninstall-app.sh \
-            assets/pushtotalk \
-            assets/PushToTalk.app \
+            scripts \
+            dist/pushtotalk \
+            dist/PushToTalk.app \
+            docs \
             README.md
-          chmod +x package-dmg.sh
-          ./package-dmg.sh
+          chmod +x packaging/package-dmg.sh
+          ./packaging/package-dmg.sh
 
       - name: Run Semantic Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -2,11 +2,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CODESIGN_IDENTITY="${PUSHTOTALK_CODESIGN_IDENTITY:-}"
 BUNDLE_ID="com.pushtotalk.PushToTalk"
 
 echo "==> 编译并打包 GUI App..."
-make -C "$SCRIPT_DIR/swift-helper"
+make -C "$REPO_ROOT/packaging"
 
 # 检查目标安装目录
 INSTALL_DIR="/Applications"
@@ -31,7 +32,7 @@ sleep 1
 
 echo "==> 安装 PushToTalk.app 到 $INSTALL_DIR..."
 rm -rf "$APP_DEST"
-cp -R "$SCRIPT_DIR/assets/PushToTalk.app" "$APP_DEST"
+cp -R "$REPO_ROOT/dist/PushToTalk.app" "$APP_DEST"
 
 if [[ -n "$CODESIGN_IDENTITY" ]]; then
     echo "==> 使用代码签名身份对 App 进行深层签名: $CODESIGN_IDENTITY"

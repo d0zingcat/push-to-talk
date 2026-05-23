@@ -7,7 +7,7 @@ LOG_DIR="$HOME/Library/Logs/pushtotalk"
 
 if [[ ! -f "$PLIST_PATH" ]]; then
     echo "Error: LaunchAgent plist not found: $PLIST_PATH" >&2
-    echo "Run ./install-daemon.sh first." >&2
+    echo "Run ./scripts/install-daemon.sh first." >&2
     exit 1
 fi
 

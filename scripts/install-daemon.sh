@@ -8,18 +8,19 @@ PLIST_LABEL="com.pushtotalk.daemon"
 PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
 LOG_DIR="$HOME/Library/Logs/pushtotalk"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CODESIGN_IDENTITY="${PUSHTOTALK_CODESIGN_IDENTITY:-}"
 
-if [[ ! -f "$SCRIPT_DIR/assets/pushtotalk" ]]; then
+if [[ ! -f "$REPO_ROOT/dist/pushtotalk" ]]; then
     echo "==> 编译 Swift helper..."
-    make -C "$SCRIPT_DIR/swift-helper"
+    make -C "$REPO_ROOT/packaging"
 else
     echo "==> 找到已编译的二进制文件，跳过编译。"
 fi
 
 echo "==> 安装二进制到 $BINARY..."
 mkdir -p "$BINARY_DIR"
-cp "$SCRIPT_DIR/assets/pushtotalk" "$BINARY"
+cp "$REPO_ROOT/dist/pushtotalk" "$BINARY"
 chmod +x "$BINARY"
 
 echo "==> 创建日志目录: $LOG_DIR"
@@ -78,4 +79,4 @@ echo "  日志：tail -f $LOG_DIR/pushtotalk-daemon.log"
 echo "  错误：tail -f $LOG_DIR/pushtotalk-daemon.err"
 echo ""
 echo "  如果语音没有触发，请在「系统设置 → 隐私与安全性 → 辅助功能」授权：$BINARY"
-echo "  授权后只需运行 ./restart-daemon.sh，不要再次安装，否则 macOS 可能要求重新授权。"
+echo "  授权后只需运行 ./scripts/restart-daemon.sh，不要再次安装，否则 macOS 可能要求重新授权。"

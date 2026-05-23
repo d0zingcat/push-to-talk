@@ -23,11 +23,11 @@ case "daemon":
     daemonTargetIME = parseTarget(from: args)
 
     if !checkAccessibilityPermission(prompt: false) {
-        fputs("Error: daemon requires Accessibility permission to post right Option events.\nGrant access to ~/.local/bin/pushtotalk in System Settings → Privacy & Security → Accessibility, then run ./restart-daemon.sh.\n", stderr)
+        fputs("Error: daemon requires Accessibility permission to post right Option events.\nGrant access to ~/.local/bin/pushtotalk in System Settings → Privacy & Security → Accessibility, then run ./scripts/restart-daemon.sh.\n", stderr)
         exit(3)
     }
     if !checkInputMonitoringPermission(prompt: false) {
-        fputs("Error: daemon requires Input Monitoring permission to observe right Command events.\nGrant access to ~/.local/bin/pushtotalk in System Settings → Privacy & Security → Input Monitoring, then run ./restart-daemon.sh.\n", stderr)
+        fputs("Error: daemon requires Input Monitoring permission to observe right Command events.\nGrant access to ~/.local/bin/pushtotalk in System Settings → Privacy & Security → Input Monitoring, then run ./scripts/restart-daemon.sh.\n", stderr)
         exit(3)
     }
 
