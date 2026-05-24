@@ -42,6 +42,19 @@ The daemon uses:
 - `TISSelectInputSource` and `TISCopyCurrentKeyboardInputSource` to switch IMEs.
 - `CGEvent` to post Right Option `flagsChanged` events.
 
+### Key simulation and the HID state requirement
+
+Posting synthetic key events to `.cgSessionEventTap` is not sufficient to trigger an IME's long-press shortcut. IMEs such as WeChat verify the key is still physically held by calling `CGEventSourceKeyState(.hidSystemState)` partway through their long-press timer. Events injected at the session layer do not update the HID state, so this check fails silently and the shortcut never fires.
+
+The correct approach:
+
+1. Create the event source with `CGEventSource(stateID: .hidSystemState)`.
+2. Post to `.cghidEventTap` instead of `.cgSessionEventTap`.
+
+This updates the system-wide HID key state so the IME's in-progress check returns `true` for the full duration of the simulated hold. The technique works for any key used as an IME trigger (Right Option, Fn, etc.), and Accessibility permission must be granted to the posting process.
+
+See [`tests/hold-fn.swift`](tests/hold-fn.swift) for the minimal standalone test that confirmed this.
+
 ## Stability Guards
 
 The daemon is designed to fail conservatively:
@@ -66,7 +79,8 @@ push-to-talk/
 │   └── PushToTalk.app/
 ├── tests/
 │   ├── check-daemon-release-flow.swift
-│   └── check-swift-only-project.swift
+│   ├── check-swift-only-project.swift
+│   └── hold-fn.swift             # standalone HID long-press simulator (see Implementation notes)
 ├── install-app.sh
 ├── uninstall-app.sh
 ├── install-daemon.sh
